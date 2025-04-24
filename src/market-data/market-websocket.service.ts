@@ -4,10 +4,16 @@ import { TickerAnalyzerService } from './ticker-analyzer.service';
 
 @Injectable()
 export class MarketWebsocketService {
+  // private readonly tickersPerExchange = {
+  //   binance: ['btcusdt', 'ltcusdt', 'ethusdt'], 
+  //   bybit: ['BTCUSDT', 'LTCUSDT', 'ETHUSDT'], 
+  //   okx: ['BTC-USDT', 'LTC-USDT', 'ETH-USDT'], 
+  // };
+
   private readonly tickersPerExchange = {
-    binance: ['btcusdt', 'ltcusdt', 'ethusdt'], //['trxusdt', 'adausdt', 'dogeusdt'],
-    bybit: ['BTCUSDT', 'LTCUSDT', 'ETHUSDT'], //['TRXUSDT', 'ADAUSDT', 'DOGEUSDT'],
-    okx: ['BTC-USDT', 'LTC-USDT', 'ETH-USDT'],
+    binance:['trxusdt', 'adausdt', 'dogeusdt'],
+    bybit: ['TRXUSDT', 'ADAUSDT', 'DOGEUSDT'],
+    okx:['TRX-USDT', 'ADA-USDT', 'DOGE-USDT'],
   };
 
   constructor(private readonly analyzer: TickerAnalyzerService) {
