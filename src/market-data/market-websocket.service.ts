@@ -5,8 +5,8 @@ import { TickerAnalyzerService } from './ticker-analyzer.service';
 @Injectable()
 export class MarketWebsocketService {
   private readonly tickersPerExchange = {
-    binance: ['btcusdt', 'ltcusdt', 'ethusdt'],
-    bybit: ['BTCUSDT', 'LTCUSDT', 'ETHUSDT'],
+    binance: ['btcusdt', 'ltcusdt', 'ethusdt'], //['trxusdt', 'adausdt', 'dogeusdt'],
+    bybit: ['BTCUSDT', 'LTCUSDT', 'ETHUSDT'], //['TRXUSDT', 'ADAUSDT', 'DOGEUSDT'],
     okx: ['BTC-USDT', 'LTC-USDT', 'ETH-USDT'],
   };
 
