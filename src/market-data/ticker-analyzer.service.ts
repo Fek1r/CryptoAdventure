@@ -20,31 +20,52 @@ export class TickerAnalyzerService {
   ) {}
 
   collectPrice(priceInfo: PriceInfo) {
-    const key = priceInfo.ticker;
+    const key = priceInfo.ticker.toUpperCase();
     if (!this.latestPrices[key]) {
       this.latestPrices[key] = [];
     }
 
-    this.latestPrices[key].push(priceInfo);
+    // Обновляем или добавляем цену от этой биржи
+    const existingIndex = this.latestPrices[key].findIndex(
+      (p) => p.exchange === priceInfo.exchange
+    );
 
-    if (this.latestPrices[key].length >= 3) {
+    if (existingIndex !== -1) {
+      this.latestPrices[key][existingIndex] = priceInfo;
+    } else {
+      this.latestPrices[key].push(priceInfo);
+    }
+
+    const exchanges = new Set(this.latestPrices[key].map((p) => p.exchange));
+
+    
+
+    if (exchanges.size >= 2) {
       const record = this.analyze(this.latestPrices[key]);
 
       if (record) {
+        console.log('✅ Arbitrage opportunity:', record);
+
         this.csv.saveRecord(record);
 
-        if (record.max_price_diff > 0) {
+        if (
+          record.max_price_diff > 0 &&
+          record.exchange_with_lower_price !== record.exchange_with_higher_price
+        ) {
           this.db.saveRecord(record);
         }
+      } else {
+        console.log(`ℹ️ No arbitrage found for ${key}`);
       }
 
+      // очищаем
       this.latestPrices[key] = [];
     }
   }
 
   analyze(prices: PriceInfo[]) {
     const validPrices = prices.filter(
-      p =>
+      (p) =>
         typeof p.price === 'number' &&
         typeof p.latency === 'number' &&
         typeof p.timestamp === 'number' &&

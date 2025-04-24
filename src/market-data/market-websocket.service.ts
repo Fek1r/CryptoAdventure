@@ -5,9 +5,21 @@ import { TickerAnalyzerService } from './ticker-analyzer.service';
 @Injectable()
 export class MarketWebsocketService {
   private readonly tickersPerExchange = {
-    binance: ['trxusdt', 'adausdt', 'dogeusdt'],
-    bybit: ['TRXUSDT', 'ADAUSDT', 'DOGEUSDT'],
-    okx: ['TRX-USDT', 'ADA-USDT', 'DOGE-USDT'],
+    binance: [
+      'trxusdt', 'adausdt', 'dogeusdt', 'tonusdt', 'nearusdt',
+      'xlmusdt', 'vetusdt', 'algousdt', 'iotausdt', 'icpusdt',
+      'zilusdt', 'sandusdt', 'galausdt',
+    ],
+    bybit: [
+      'TRXUSDT', 'ADAUSDT', 'DOGEUSDT', 'TONUSDT', 'NEARUSDT',
+      'XLMUSDT', 'VETUSDT', 'ALGOUSDT', 'IOTAUSDT', 'ICPUSDT',
+      'ZILUSDT', 'SANDUSDT', 'GALAUSDT',
+    ],
+    okx: [
+      'TRX-USDT', 'ADA-USDT', 'DOGE-USDT', 'TON-USDT', 'NEAR-USDT',
+      'XLM-USDT', 'VET-USDT', 'ALGO-USDT', 'IOTA-USDT', 'ICP-USDT',
+      'ZIL-USDT', 'SAND-USDT', 'GALA-USDT',
+    ],
   };
 
   constructor(private readonly analyzer: TickerAnalyzerService) {
@@ -16,32 +28,36 @@ export class MarketWebsocketService {
 
   connectToExchanges() {
     Object.entries(this.tickersPerExchange).forEach(([exchange, tickers]) => {
-      tickers.forEach((ticker) => {
-        const url = this.getUrl(exchange, ticker);
-        if (!url) return;
+      const url = this.getUrl(exchange, tickers[0]);
+      if (!url) return;
 
-        const ws = new WebSocket(url);
-        const start = Date.now();
+      const ws = new WebSocket(url);
+      const start = Date.now();
 
-        ws.on('open', () => {
+      ws.on('open', () => {
+        console.log(`[${exchange}] WebSocket connected`);
+        tickers.forEach((ticker) => {
           const subscribeMessage = this.getSubscribeMessage(exchange, ticker);
           if (subscribeMessage) {
             ws.send(subscribeMessage);
+            console.log(`[${exchange}] Subscribed to ${ticker}`);
           }
         });
+      });
 
-        ws.on('message', (data) => {
-          const latency = Date.now() - start;
-          const parsed = this.parseMessage(exchange, data.toString(), ticker, latency);
+      ws.on('message', (data) => {
+        const latency = Date.now() - start;
+        const message = data.toString();
 
-          if (parsed) {
-            this.analyzer.collectPrice(parsed);
-          }
-        });
+        const parsed = this.parseMessage(exchange, message, '', latency);
+        if (parsed) {
+          console.log(`📥 ${parsed.exchange} ${parsed.ticker}: ${parsed.price}`);
+          this.analyzer.collectPrice(parsed);
+        }
+      });
 
-        ws.on('error', (err) => {
-          console.error(`[${exchange}] WebSocket error:`, err.message);
-        });
+      ws.on('error', (err) => {
+        console.error(`[${exchange}] WebSocket error:`, err.message);
       });
     });
   }
@@ -79,46 +95,50 @@ export class MarketWebsocketService {
   parseMessage(exchange: string, msg: string, expectedTicker: string, latency: number) {
     try {
       const data = JSON.parse(msg);
-      const now = Date.now();
-      const normalizedTicker = expectedTicker.toUpperCase();
 
-      if (exchange === 'binance' && data?.s?.toUpperCase() === normalizedTicker && data?.c) {
-        return {
-          price: parseFloat(data.c),
-          timestamp: now,
-          exchange,
-          latency,
-          ticker: expectedTicker,
-        };
-      }
+      switch (exchange) {
+        case 'binance':
+          if (data.e !== '24hrTicker') return null;
+          return {
+            symbol: data.s,
+            price: parseFloat(data.c),
+            timestamp: data.E,
+            exchange,
+            latency,
+            ticker: data.s.toLowerCase(),
+          };
 
-      if (exchange === 'bybit' && data?.data?.symbol === normalizedTicker && data?.data?.lastPrice) {
-        return {
-          price: parseFloat(data.data.lastPrice),
-          timestamp: now,
-          exchange,
-          latency,
-          ticker: expectedTicker,
-        };
-      }
+        case 'bybit':
+          if (data.topic?.startsWith('tickers.') && data.data) {
+            return {
+              symbol: data.data.symbol,
+              price: parseFloat(data.data.lastPrice),
+              timestamp: data.ts,
+              exchange,
+              latency,
+              ticker: data.data.symbol,
+            };
+          }
+          break;
 
-      if (
-        exchange === 'okx' &&
-        data?.arg?.instId === expectedTicker &&
-        data?.data?.[0]?.last
-      ) {
-        return {
-          price: parseFloat(data.data[0].last),
-          timestamp: now,
-          exchange,
-          latency,
-          ticker: expectedTicker,
-        };
+        case 'okx':
+          if (data.arg?.channel === 'tickers' && data.data?.[0]) {
+            const tickerData = data.data[0];
+            return {
+              symbol: tickerData.instId.replace('-', ''),
+              price: parseFloat(tickerData.last),
+              timestamp: parseInt(tickerData.ts),
+              exchange,
+              latency,
+              ticker: tickerData.instId,
+            };
+          }
+          break;
       }
 
       return null;
-    } catch (e) {
-      console.error(`Parse error from ${exchange}:`, e.message);
+    } catch (err) {
+      console.error(`[${exchange}] Failed to parse message`, err);
       return null;
     }
   }
