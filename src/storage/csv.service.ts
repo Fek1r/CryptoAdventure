@@ -19,13 +19,13 @@ export class CsvService {
     const line = [
       record.timestamp,
       record.exchange_with_lower_price,
-      `${record.price_with_lower_exchange} $`,
-      `${record.exchange_with_lower_price_api_response_time} ms`,
+      `${record.lower_price} $`,
+      `${record.lower_latency} ms`,
       record.exchange_with_higher_price,
-      `${record.price_with_higher_exchange} $`,
-      `${record.exchange_with_higher_price_api_response_time} ms`,
+      `${record.higher_price} $`,
+      `${record.higher_latency} ms`,
       `${record.max_price_diff.toFixed(6)} %`,
-      `${record.total_price_diff_duration} ms`,
+      `${record.duration} ms`,
       record.ticker,
     ].join(',') + '\n';
 

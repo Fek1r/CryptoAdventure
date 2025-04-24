@@ -4,16 +4,10 @@ import { TickerAnalyzerService } from './ticker-analyzer.service';
 
 @Injectable()
 export class MarketWebsocketService {
-  // private readonly tickersPerExchange = {
-  //   binance: ['btcusdt', 'ltcusdt', 'ethusdt'], 
-  //   bybit: ['BTCUSDT', 'LTCUSDT', 'ETHUSDT'], 
-  //   okx: ['BTC-USDT', 'LTC-USDT', 'ETH-USDT'], 
-  // };
-
   private readonly tickersPerExchange = {
-    binance:['trxusdt', 'adausdt', 'dogeusdt'],
+    binance: ['trxusdt', 'adausdt', 'dogeusdt'],
     bybit: ['TRXUSDT', 'ADAUSDT', 'DOGEUSDT'],
-    okx:['TRX-USDT', 'ADA-USDT', 'DOGE-USDT'],
+    okx: ['TRX-USDT', 'ADA-USDT', 'DOGE-USDT'],
   };
 
   constructor(private readonly analyzer: TickerAnalyzerService) {
@@ -38,16 +32,10 @@ export class MarketWebsocketService {
 
         ws.on('message', (data) => {
           const latency = Date.now() - start;
-          const parsed = this.parseMessage(exchange, data.toString(), ticker);
+          const parsed = this.parseMessage(exchange, data.toString(), ticker, latency);
 
           if (parsed) {
-            this.analyzer.collectPrice({
-              price: parsed.price,
-              timestamp: Date.parse(parsed.timestamp),
-              exchange,
-              latency,
-              ticker,
-            });
+            this.analyzer.collectPrice(parsed);
           }
         });
 
@@ -88,23 +76,44 @@ export class MarketWebsocketService {
     }
   }
 
-  parseMessage(exchange: string, msg: string, expectedTicker: string) {
+  parseMessage(exchange: string, msg: string, expectedTicker: string, latency: number) {
     try {
       const data = JSON.parse(msg);
+      const now = Date.now();
+      const normalizedTicker = expectedTicker.toUpperCase();
 
-      if (exchange === 'binance' && data?.s?.toLowerCase() === expectedTicker.toLowerCase() && data?.c) {
-        const price = parseFloat(data.c);
-        return this.isValidPrice(price) ? { price, timestamp: new Date().toISOString() } : null;
+      if (exchange === 'binance' && data?.s?.toUpperCase() === normalizedTicker && data?.c) {
+        return {
+          price: parseFloat(data.c),
+          timestamp: now,
+          exchange,
+          latency,
+          ticker: expectedTicker,
+        };
       }
 
-      if (exchange === 'bybit' && data?.data?.symbol === expectedTicker && data?.data?.lastPrice) {
-        const price = parseFloat(data.data.lastPrice);
-        return this.isValidPrice(price) ? { price, timestamp: new Date().toISOString() } : null;
+      if (exchange === 'bybit' && data?.data?.symbol === normalizedTicker && data?.data?.lastPrice) {
+        return {
+          price: parseFloat(data.data.lastPrice),
+          timestamp: now,
+          exchange,
+          latency,
+          ticker: expectedTicker,
+        };
       }
 
-      if (exchange === 'okx' && data?.arg?.instId === expectedTicker && data?.data?.[0]?.last) {
-        const price = parseFloat(data.data[0].last);
-        return this.isValidPrice(price) ? { price, timestamp: new Date().toISOString() } : null;
+      if (
+        exchange === 'okx' &&
+        data?.arg?.instId === expectedTicker &&
+        data?.data?.[0]?.last
+      ) {
+        return {
+          price: parseFloat(data.data[0].last),
+          timestamp: now,
+          exchange,
+          latency,
+          ticker: expectedTicker,
+        };
       }
 
       return null;
