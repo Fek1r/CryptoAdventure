@@ -6,19 +6,61 @@ import { TickerAnalyzerService } from './ticker-analyzer.service';
 export class MarketWebsocketService {
   private readonly tickersPerExchange = {
     binance: [
-      'trxusdt', 'adausdt', 'dogeusdt', 'tonusdt', 'nearusdt',
-      'xlmusdt', 'vetusdt', 'algousdt', 'iotausdt', 'icpusdt',
-      'zilusdt', 'sandusdt', 'galausdt',
+      'trxusdt',
+      'adausdt',
+      'dogeusdt',
+      'tonusdt',
+      'nearusdt',
+      'xlmusdt',
+      'algousdt',
+      'iotausdt',
+      'icpusdt',
+      'zilusdt',
+      'sandusdt',
+      // Low cap
+      'ctsiusdt',  // Cartesi
+      'utkusdt',   // Utrust
+      'rlcusdt',   // iExec RLC
+      'cotiusdt',  // COTI
+      'scrtusdt',  // Secret
     ],
     bybit: [
-      'TRXUSDT', 'ADAUSDT', 'DOGEUSDT', 'TONUSDT', 'NEARUSDT',
-      'XLMUSDT', 'VETUSDT', 'ALGOUSDT', 'IOTAUSDT', 'ICPUSDT',
-      'ZILUSDT', 'SANDUSDT', 'GALAUSDT',
+      'TRXUSDT',
+      'ADAUSDT',
+      'DOGEUSDT',
+      'TONUSDT',
+      'NEARUSDT',
+      'XLMUSDT',
+      'ALGOUSDT',
+      'IOTAUSDT',
+      'ICPUSDT',
+      'ZILUSDT',
+      'SANDUSDT',
+      // Low cap
+      'POPUSDT',   // Popcat
+      'ALCHUSDT',  // Alchemist AI
+      'GRASSUSDT', // Grass
+      'WCTUSDT',   // WalletConnect
+      'PENGUUSDT', // Pudgy Penguins
     ],
     okx: [
-      'TRX-USDT', 'ADA-USDT', 'DOGE-USDT', 'TON-USDT', 'NEAR-USDT',
-      'XLM-USDT', 'VET-USDT', 'ALGO-USDT', 'IOTA-USDT', 'ICP-USDT',
-      'ZIL-USDT', 'SAND-USDT', 'GALA-USDT',
+      'TRX-USDT',
+      'ADA-USDT',
+      'DOGE-USDT',
+      'TON-USDT',
+      'NEAR-USDT',
+      'XLM-USDT',
+      'ALGO-USDT',
+      'IOTA-USDT',
+      'ICP-USDT',
+      'ZIL-USDT',
+      'SAND-USDT',
+      // Low cap
+      'KAS-USDT',    // Kaspa
+      'AR-USDT',     // Arweave
+      'IMX-USDT',    // Immutable X
+      'LOOKS-USDT',  // LooksRare
+      'FEPE-USDT',   // Fantasy Pepe
     ],
   };
 
@@ -28,37 +70,58 @@ export class MarketWebsocketService {
 
   connectToExchanges() {
     Object.entries(this.tickersPerExchange).forEach(([exchange, tickers]) => {
-      const url = this.getUrl(exchange, tickers[0]);
-      if (!url) return;
-
-      const ws = new WebSocket(url);
-      const start = Date.now();
-
-      ws.on('open', () => {
-        console.log(`[${exchange}] WebSocket connected`);
+      if (exchange === 'binance') {
+        // Binance: отдельный сокет на каждый тикер
         tickers.forEach((ticker) => {
-          const subscribeMessage = this.getSubscribeMessage(exchange, ticker);
-          if (subscribeMessage) {
-            ws.send(subscribeMessage);
-            console.log(`[${exchange}] Subscribed to ${ticker}`);
-          }
+          const url = this.getUrl(exchange, ticker);
+          if (!url) return;
+
+          const ws = new WebSocket(url);
+          const start = Date.now();
+
+          ws.on('open', () => {
+            console.log(`[${exchange}] Connected to ${ticker}`);
+          });
+
+          ws.on('message', (data) => {
+            const latency = Date.now() - start;
+            const parsed = this.parseMessage(exchange, data.toString(), ticker, latency);
+            if (parsed) this.analyzer.collectPrice(parsed);
+          });
+
+          ws.on('error', (err) => {
+            console.error(`[${exchange}] WebSocket error:`, err.message);
+          });
         });
-      });
+      } else {
+        // Bybit / OKX: один сокет, подписка на все тикеры
+        const url = this.getUrl(exchange, tickers[0]);
+        if (!url) return;
 
-      ws.on('message', (data) => {
-        const latency = Date.now() - start;
-        const message = data.toString();
+        const ws = new WebSocket(url);
+        const start = Date.now();
 
-        const parsed = this.parseMessage(exchange, message, '', latency);
-        if (parsed) {
-          console.log(`📥 ${parsed.exchange} ${parsed.ticker}: ${parsed.price}`);
-          this.analyzer.collectPrice(parsed);
-        }
-      });
+        ws.on('open', () => {
+          console.log(`[${exchange}] WebSocket connected`);
+          tickers.forEach((ticker) => {
+            const subscribeMessage = this.getSubscribeMessage(exchange, ticker);
+            if (subscribeMessage) {
+              ws.send(subscribeMessage);
+              console.log(`[${exchange}] Subscribed to ${ticker}`);
+            }
+          });
+        });
 
-      ws.on('error', (err) => {
-        console.error(`[${exchange}] WebSocket error:`, err.message);
-      });
+        ws.on('message', (data) => {
+          const latency = Date.now() - start;
+          const parsed = this.parseMessage(exchange, data.toString(), '', latency);
+          if (parsed) this.analyzer.collectPrice(parsed);
+        });
+
+        ws.on('error', (err) => {
+          console.error(`[${exchange}] WebSocket error:`, err.message);
+        });
+      }
     });
   }
 
@@ -121,29 +184,25 @@ export class MarketWebsocketService {
           }
           break;
 
-        case 'okx':
-          if (data.arg?.channel === 'tickers' && data.data?.[0]) {
-            const tickerData = data.data[0];
-            return {
-              symbol: tickerData.instId.replace('-', ''),
-              price: parseFloat(tickerData.last),
-              timestamp: parseInt(tickerData.ts),
-              exchange,
-              latency,
-              ticker: tickerData.instId,
-            };
-          }
-          break;
+          case 'okx':
+            if (data.arg?.channel === 'tickers' && data.data?.[0]) {
+              const tickerData = data.data[0];
+              return {
+                symbol: tickerData.instId.replace('-', '').toUpperCase(),
+                price: parseFloat(tickerData.last),
+                timestamp: parseInt(tickerData.ts),
+                exchange,
+                latency,
+                ticker: tickerData.instId.replace('-', '').toUpperCase(), // <-- исправили тут
+              };
+            }
+            break;
       }
 
       return null;
     } catch (err) {
-      console.error(`[${exchange}] Failed to parse message`, err);
+      console.error(`[${exchange}] Failed to parse message`, err.message);
       return null;
     }
-  }
-
-  isValidPrice(price: number): boolean {
-    return !isNaN(price) && price > 0;
   }
 }

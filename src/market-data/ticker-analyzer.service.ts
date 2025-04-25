@@ -49,7 +49,7 @@ export class TickerAnalyzerService {
         this.csv.saveRecord(record);
 
         if (
-          record.max_price_diff > 0 &&
+          record.max_price_diff > 0.1 &&
           record.exchange_with_lower_price !== record.exchange_with_higher_price
         ) {
           this.db.saveRecord(record);
@@ -95,6 +95,7 @@ export class TickerAnalyzerService {
       duration: higher.timestamp - lower.timestamp,
 
       ticker: lower.ticker.replace('-', '/').toUpperCase(),
+      
     };
   }
 }
