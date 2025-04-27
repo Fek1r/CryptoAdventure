@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CsvService } from '../storage/csv.service';
-import { PostgresService } from '../storage/postgres.service';
+import { ArbitrageManagerService } from './arbitrage-manager.service';
 
 interface PriceInfo {
   exchange: string;
@@ -15,8 +14,7 @@ export class TickerAnalyzerService {
   private latestPrices: Record<string, PriceInfo[]> = {};
 
   constructor(
-    private readonly csv: CsvService,
-    private readonly db: PostgresService
+    private readonly arbitrageManager: ArbitrageManagerService,
   ) {}
 
   collectPrice(priceInfo: PriceInfo) {
@@ -25,9 +23,8 @@ export class TickerAnalyzerService {
       this.latestPrices[key] = [];
     }
 
-    // Обновляем или добавляем цену от этой биржи
     const existingIndex = this.latestPrices[key].findIndex(
-      (p) => p.exchange === priceInfo.exchange
+      (p) => p.exchange === priceInfo.exchange,
     );
 
     if (existingIndex !== -1) {
@@ -38,27 +35,23 @@ export class TickerAnalyzerService {
 
     const exchanges = new Set(this.latestPrices[key].map((p) => p.exchange));
 
-    
-
     if (exchanges.size >= 2) {
       const record = this.analyze(this.latestPrices[key]);
 
       if (record) {
-        console.log('✅ Arbitrage opportunity:', record);
+        console.log('✅ Potential Arbitrage Found:', record);
 
-        this.csv.saveRecord(record);
-
-        if (
-          record.max_price_diff > 0.1 &&
-          record.exchange_with_lower_price !== record.exchange_with_higher_price
-        ) {
-          this.db.saveRecord(record);
-        }
+        this.arbitrageManager.handleSpread(
+          record.exchange_with_lower_price,
+          record.exchange_with_higher_price,
+          record.ticker,
+          record.lower_price,
+          record.higher_price
+        );
       } else {
         console.log(`ℹ️ No arbitrage found for ${key}`);
       }
 
-      // очищаем
       this.latestPrices[key] = [];
     }
   }
@@ -71,7 +64,7 @@ export class TickerAnalyzerService {
         typeof p.timestamp === 'number' &&
         !isNaN(p.price) &&
         !isNaN(p.latency) &&
-        !isNaN(p.timestamp)
+        !isNaN(p.timestamp),
     );
 
     if (validPrices.length < 2) return null;
@@ -82,20 +75,15 @@ export class TickerAnalyzerService {
 
     return {
       timestamp: new Date(higher.timestamp).toISOString(),
-
       exchange_with_lower_price: lower.exchange,
       lower_price: lower.price,
       lower_latency: lower.latency,
-
       exchange_with_higher_price: higher.exchange,
       higher_price: higher.price,
       higher_latency: higher.latency,
-
       max_price_diff: parseFloat(diffPercent.toFixed(6)),
-      duration: higher.timestamp - lower.timestamp,
-
+      duration: Math.abs(higher.timestamp - lower.timestamp),
       ticker: lower.ticker.replace('-', '/').toUpperCase(),
-      
     };
   }
 }
