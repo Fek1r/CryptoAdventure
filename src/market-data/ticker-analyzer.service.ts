@@ -13,19 +13,18 @@ interface PriceInfo {
 export class TickerAnalyzerService {
   private latestPrices: Record<string, PriceInfo[]> = {};
 
-  constructor(
-    private readonly arbitrageManager: ArbitrageManagerService,
-  ) {}
+  constructor(private readonly arbitrageManager: ArbitrageManagerService) {}
 
   collectPrice(priceInfo: PriceInfo) {
     const key = priceInfo.ticker.toUpperCase();
+
     if (!this.latestPrices[key]) {
       this.latestPrices[key] = [];
     }
 
-    const existingIndex = this.latestPrices[key].findIndex(
-      (p) => p.exchange === priceInfo.exchange,
-    );
+    this.latestPrices[key] = this.latestPrices[key].filter(p => Date.now() - p.timestamp < 2000);
+
+    const existingIndex = this.latestPrices[key].findIndex(p => p.exchange === priceInfo.exchange);
 
     if (existingIndex !== -1) {
       this.latestPrices[key][existingIndex] = priceInfo;
@@ -33,14 +32,13 @@ export class TickerAnalyzerService {
       this.latestPrices[key].push(priceInfo);
     }
 
-    const exchanges = new Set(this.latestPrices[key].map((p) => p.exchange));
+    const exchanges = new Set(this.latestPrices[key].map(p => p.exchange));
 
     if (exchanges.size >= 2) {
       const record = this.analyze(this.latestPrices[key]);
 
       if (record) {
         console.log('✅ Potential Arbitrage Found:', record);
-
         this.arbitrageManager.handleSpread(
           record.exchange_with_lower_price,
           record.exchange_with_higher_price,
@@ -50,7 +48,6 @@ export class TickerAnalyzerService {
           record.lower_latency,
           record.higher_latency
         );
-        
       } else {
         console.log(`ℹ️ No arbitrage found for ${key}`);
       }
@@ -60,15 +57,7 @@ export class TickerAnalyzerService {
   }
 
   analyze(prices: PriceInfo[]) {
-    const validPrices = prices.filter(
-      (p) =>
-        typeof p.price === 'number' &&
-        typeof p.latency === 'number' &&
-        typeof p.timestamp === 'number' &&
-        !isNaN(p.price) &&
-        !isNaN(p.latency) &&
-        !isNaN(p.timestamp),
-    );
+    const validPrices = prices.filter(p => typeof p.price === 'number' && !isNaN(p.price));
 
     if (validPrices.length < 2) return null;
 
@@ -86,7 +75,7 @@ export class TickerAnalyzerService {
       higher_latency: higher.latency,
       max_price_diff: parseFloat(diffPercent.toFixed(6)),
       duration: Math.abs(higher.timestamp - lower.timestamp),
-      ticker: lower.ticker.replace('-', '/').toUpperCase(),
+      ticker: lower.ticker,
     };
   }
 }

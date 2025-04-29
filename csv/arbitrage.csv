@@ -1,5 +1,1 @@
 timestamp,exchange_with_lower_price,lower_price,lower_latency(ms),exchange_with_higher_price,higher_price,higher_latency(ms),max_price_diff(%),duration(ms),ticker
-2025-04-29T08:48:43.804Z,binance,5.131,28477,bybit,5.132,28251,0.019489,286,ICPUSDT
-2025-04-29T08:49:10.639Z,binance,0.7113,55323,bybit,0.7116,55169,0.042176,278,ADAUSDT
-2025-04-29T08:49:11.651Z,binance,0.7113,56323,bybit,0.7116,55388,0.042176,290,ADAUSDT
-2025-04-29T08:49:12.729Z,binance,0.7113,57324,bybit,0.7116,57395,0.042176,289,ADAUSDT
