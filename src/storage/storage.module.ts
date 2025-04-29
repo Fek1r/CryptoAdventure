@@ -4,6 +4,6 @@ import { PostgresService } from './postgres.service';
 
 @Module({
   providers: [CsvService, PostgresService],
-  exports: [CsvService, PostgresService],
+  exports: [CsvService, PostgresService], // обязательно экспортируем
 })
 export class StorageModule {}

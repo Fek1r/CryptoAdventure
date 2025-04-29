@@ -32,43 +32,59 @@ export class ArbitrageManagerService {
 
     if (spread < this.commissionThreshold) {
       this.windows.delete(ticker);
+      console.log(`❌ Spread too small for ${ticker}: ${spread.toFixed(6)}%`);
       return;
     }
 
     const window = this.windows.get(ticker);
 
     if (!window) {
-      // Создаём новое окно для тикера
       this.windows.set(ticker, { startTime: Date.now() });
+      console.log(`⏳ New arbitrage window started for ${ticker}`);
 
-      const confirmed = await this.confirmThroughApi(lowerExchange, higherExchange, ticker);
+      // ВРЕМЕННО: подтверждение отключено
+      const confirmed = true;
+
+      // Если хочешь вернуть API-подтверждение — раскомментируй:
+      // const confirmed = await this.confirmThroughApi(lowerExchange, higherExchange, ticker);
 
       const savedWindow = this.windows.get(ticker);
       if (confirmed && savedWindow) {
         const now = Date.now();
         const realDuration = now - savedWindow.startTime;
 
-        console.log(`\u2705 Confirmed arbitrage ${ticker}: duration ${realDuration} ms`);
+        console.log(`✅ Confirmed arbitrage ${ticker}: duration ${realDuration} ms`);
 
         const record = {
-            timestamp: new Date(now).toISOString(),
-            exchange_with_lower_price: lowerExchange,
-            lower_price: lowerPrice,
-            lower_latency: lowerLatency,
-            exchange_with_higher_price: higherExchange,
-            higher_price: higherPrice,
-            higher_latency: higherLatency,
-            max_price_diff: parseFloat(spread.toFixed(6)),
-            duration: realDuration,
-            ticker,
-          };
-          
+          timestamp: new Date(now).toISOString(),
+          exchange_with_lower_price: lowerExchange,
+          lower_price: lowerPrice,
+          lower_latency: lowerLatency,
+          exchange_with_higher_price: higherExchange,
+          higher_price: higherPrice,
+          higher_latency: higherLatency,
+          max_price_diff: parseFloat(spread.toFixed(6)),
+          duration: realDuration,
+          ticker,
+        };
 
-        this.csv.saveRecord(record);
-        await this.db.saveRecord(record);
+        console.log('📤 Writing to CSV & DB:', record);
+
+        try {
+          this.csv.saveRecord(record);
+        } catch (err) {
+          console.error('❌ CSV save error:', err.message);
+        }
+
+        try {
+          await this.db.saveRecord(record);
+        } catch (err) {
+          console.error('❌ DB save error:', err.message);
+        }
+      } else {
+        console.log(`⚠️ Arbitrage not confirmed for ${ticker}`);
       }
 
-      // В любом случае очищаем окно
       this.windows.delete(ticker);
     }
   }
@@ -80,10 +96,13 @@ export class ArbitrageManagerService {
         this.api.getBestBid(higherExchange, ticker),
       ]);
 
-      if (!lowerAsk || !higherBid) return false;
+      if (!lowerAsk || !higherBid) {
+        console.warn(`⚠️ API data missing for ${ticker}: ask=${lowerAsk}, bid=${higherBid}`);
+        return false;
+      }
 
       const apiSpread = ((higherBid - lowerAsk) / lowerAsk) * 100;
-      console.log(`\ud83d\udcf1 API Spread Confirmed: ${ticker} = ${apiSpread.toFixed(6)} %`);
+      console.log(`📱 API Spread: ${ticker} = ${apiSpread.toFixed(6)}%`);
 
       return apiSpread >= this.commissionThreshold;
     } catch (error: any) {

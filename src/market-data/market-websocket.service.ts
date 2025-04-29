@@ -44,69 +44,62 @@ export class MarketWebsocketService {
   connectToExchanges() {
     Object.entries(this.tickersPerExchange).forEach(([exchange, tickers]) => {
       if (exchange === 'binance') {
-        tickers.forEach((ticker) => {
-          const url = this.getUrl(exchange, ticker);
-          if (!url) return;
-
-          const ws = new WebSocket(url);
-          const start = Date.now();
-
-          ws.on('open', () => console.log(`[${exchange}] Connected to ${ticker}`));
-
-          ws.on('message', (data) => {
-            const latency = Date.now() - start;
-            const parsed = this.parseMessage(exchange, data.toString(), ticker, latency);
-            if (parsed) this.analyzer.collectPrice(parsed);
-          });
-
-          ws.on('error', (err) => console.error(`[${exchange}] WebSocket error:`, err.message));
-        });
+        tickers.forEach((ticker) => this.setupBinanceTicker(exchange, ticker));
       } else {
-        const url = this.getUrl(exchange, tickers[0]);
-        if (!url) return;
-
-        const ws = new WebSocket(url);
-        const start = Date.now();
-
-        ws.on('open', () => {
-          console.log(`[${exchange}] WebSocket connected`);
-          tickers.forEach((ticker) => {
-            const subscribeMessage = this.getSubscribeMessage(exchange, ticker);
-            if (subscribeMessage) ws.send(subscribeMessage);
-          });
-        });
-
-        ws.on('message', (data) => {
-          const latency = Date.now() - start;
-          const parsed = this.parseMessage(exchange, data.toString(), '', latency);
-          if (parsed) this.analyzer.collectPrice(parsed);
-        });
-
-        ws.on('error', (err) => console.error(`[${exchange}] WebSocket error:`, err.message));
+        this.setupOtherExchanges(exchange, tickers);
       }
     });
   }
 
-  getUrl(exchange: string, ticker: string): string | null {
+  private setupBinanceTicker(exchange: string, ticker: string) {
+    const url = `wss://stream.binance.com:9443/ws/${ticker}@ticker`;
+    const ws = new WebSocket(url);
+    const start = Date.now();
+
+    ws.on('open', () => console.log(`[${exchange}] Connected to ${ticker}`));
+    ws.on('message', (data) => {
+      const latency = Date.now() - start;
+      const parsed = this.parseMessage(exchange, data.toString(), latency);
+      if (parsed) this.analyzer.collectPrice(parsed);
+    });
+    ws.on('error', (err) => console.error(`[${exchange}] WebSocket error:`, err.message));
+  }
+
+  private setupOtherExchanges(exchange: string, tickers: string[]) {
+    const url = this.getUrl(exchange);
+    if (!url) return;
+
+    const ws = new WebSocket(url);
+    const start = Date.now();
+
+    ws.on('open', () => {
+      console.log(`[${exchange}] WebSocket connected`);
+      tickers.forEach((ticker) => {
+        const subscribeMessage = this.getSubscribeMessage(exchange, ticker);
+        if (subscribeMessage) ws.send(subscribeMessage);
+      });
+    });
+
+    ws.on('message', (data) => {
+      const latency = Date.now() - start;
+      const parsed = this.parseMessage(exchange, data.toString(), latency);
+      if (parsed) this.analyzer.collectPrice(parsed);
+    });
+    ws.on('error', (err) => console.error(`[${exchange}] WebSocket error:`, err.message));
+  }
+
+  private getUrl(exchange: string): string | null {
     switch (exchange) {
-      case 'binance':
-        return `wss://stream.binance.com:9443/ws/${ticker}@ticker`;
-      case 'bybit':
-        return `wss://stream.bybit.com/spot/quote/ws/v2`;
-      case 'okx':
-        return `wss://ws.okx.com:8443/ws/v5/public`;
-      case 'gate':
-        return `wss://api.gateio.ws/ws/v4/spot/`;
-      case 'mexc':
-        return `wss://wbs.mexc.com/ws`;
-      case 'bitget':
-        return `wss://ws.bitget.com/spot/v1/stream`;
-      default:
-        return null;
+      case 'bybit': return 'wss://stream.bybit.com/v5/public/spot';
+      case 'okx': return 'wss://ws.okx.com:8443/ws/v5/public';
+      case 'gate': return 'wss://api.gateio.ws/ws/v4/';
+      case 'mexc': return 'wss://wbs.mexc.com/ws';
+      case 'bitget': return 'wss://ws.bitget.com/spot/v1/stream';
+      default: return null;
     }
   }
 
-  getSubscribeMessage(exchange: string, ticker: string): string | null {
+  private getSubscribeMessage(exchange: string, ticker: string): string | null {
     switch (exchange) {
       case 'bybit':
         return JSON.stringify({ op: 'subscribe', args: [`tickers.${ticker}`] });
@@ -115,7 +108,7 @@ export class MarketWebsocketService {
       case 'gate':
         return JSON.stringify({ time: Date.now(), channel: 'spot.tickers', event: 'subscribe', payload: [ticker] });
       case 'mexc':
-        return JSON.stringify({ method: 'SUBSCRIPTION', params: [`${ticker}@ticker`], id: Date.now() });
+        return JSON.stringify({ method: 'sub.ticker.v3', params: [ticker], id: Date.now() });
       case 'bitget':
         return JSON.stringify({ op: 'subscribe', args: [{ instType: 'SPOT', channel: 'ticker', instId: ticker }] });
       default:
@@ -123,9 +116,10 @@ export class MarketWebsocketService {
     }
   }
 
-  parseMessage(exchange: string, msg: string, expectedTicker: string, latency: number) {
+  private parseMessage(exchange: string, msg: string, latency: number) {
     try {
       const data = JSON.parse(msg);
+      if (!data) return null;
 
       switch (exchange) {
         case 'binance':
@@ -133,7 +127,7 @@ export class MarketWebsocketService {
           return this.formatParsed(data.s, parseFloat(data.c), data.E, exchange, latency);
 
         case 'bybit':
-          if (data.topic?.startsWith('tickers.') && data.data)
+          if (data.topic?.startsWith('tickers.') && data.type !== 'snapshot' && data.data)
             return this.formatParsed(data.data.symbol, parseFloat(data.data.lastPrice), data.ts, exchange, latency);
           break;
 
@@ -143,7 +137,7 @@ export class MarketWebsocketService {
           break;
 
         case 'gate':
-          if (data.channel === 'spot.tickers' && data.result)
+          if (data.event === 'update' && data.channel === 'spot.tickers' && data.result)
             return this.formatParsed(data.result.currency_pair.replace('_', ''), parseFloat(data.result.last), Date.now(), exchange, latency);
           break;
 
@@ -153,13 +147,13 @@ export class MarketWebsocketService {
           break;
 
         case 'bitget':
-          if (data.arg?.channel === 'ticker' && Array.isArray(data.data) && data.data[0])
-            return this.formatParsed(data.arg.instId.replace('-', ''), parseFloat(data.data[0].last), parseInt(data.data[0].ts), exchange, latency);
+          if (data.arg?.channel === 'ticker' && data.data)
+            return this.formatParsed(data.arg.instId.replace('-', ''), parseFloat(Array.isArray(data.data) ? data.data[0].last : data.data.last), Date.now(), exchange, latency);
           break;
       }
       return null;
     } catch (err) {
-      console.error(`[${exchange}] Failed to parse message`, err.message);
+      console.error(`[${exchange}] Failed to parse message:`, err.message);
       return null;
     }
   }
