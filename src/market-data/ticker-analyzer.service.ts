@@ -46,8 +46,11 @@ export class TickerAnalyzerService {
           record.exchange_with_higher_price,
           record.ticker,
           record.lower_price,
-          record.higher_price
+          record.higher_price,
+          record.lower_latency,
+          record.higher_latency
         );
+        
       } else {
         console.log(`ℹ️ No arbitrage found for ${key}`);
       }

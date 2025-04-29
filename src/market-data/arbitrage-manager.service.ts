@@ -24,6 +24,8 @@ export class ArbitrageManagerService {
     ticker: string,
     lowerPrice: number,
     higherPrice: number,
+    lowerLatency: number,
+    higherLatency: number,
   ) {
     ticker = ticker.toUpperCase();
     const spread = ((higherPrice - lowerPrice) / lowerPrice) * 100;
@@ -49,17 +51,18 @@ export class ArbitrageManagerService {
         console.log(`\u2705 Confirmed arbitrage ${ticker}: duration ${realDuration} ms`);
 
         const record = {
-          timestamp: new Date(now).toISOString(),
-          exchange_with_lower_price: lowerExchange,
-          lower_price: lowerPrice,
-          lower_latency: 0,
-          exchange_with_higher_price: higherExchange,
-          higher_price: higherPrice,
-          higher_latency: 0,
-          max_price_diff: parseFloat(spread.toFixed(6)),
-          duration: realDuration,
-          ticker,
-        };
+            timestamp: new Date(now).toISOString(),
+            exchange_with_lower_price: lowerExchange,
+            lower_price: lowerPrice,
+            lower_latency: lowerLatency,
+            exchange_with_higher_price: higherExchange,
+            higher_price: higherPrice,
+            higher_latency: higherLatency,
+            max_price_diff: parseFloat(spread.toFixed(6)),
+            duration: realDuration,
+            ticker,
+          };
+          
 
         this.csv.saveRecord(record);
         await this.db.saveRecord(record);
