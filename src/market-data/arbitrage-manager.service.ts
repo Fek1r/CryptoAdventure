@@ -41,7 +41,9 @@ export class ArbitrageManagerService {
       // Создаём новое окно для тикера
       this.windows.set(ticker, { startTime: Date.now() });
 
-      const confirmed = await this.confirmThroughApi(lowerExchange, higherExchange, ticker);
+      const confirmed = true; // <- добавлено
+
+      //const confirmed = await this.confirmThroughApi(lowerExchange, higherExchange, ticker);
 
       const savedWindow = this.windows.get(ticker);
       if (confirmed && savedWindow) {
