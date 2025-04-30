@@ -1,1 +1,0 @@
-timestamp,exchange_with_lower_price,lower_price,lower_latency(ms),exchange_with_higher_price,higher_price,higher_latency(ms),max_price_diff(%),duration(ms),ticker
