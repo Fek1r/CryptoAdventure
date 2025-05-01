@@ -1,5 +1,6 @@
 // src/market/adapters/okx.adapter.ts
 import { ExchangeAdapter } from './exchange-adapter.interface';
+import { ParsedTicker } from './parsed-ticker.interface';
 import axios from 'axios';
 
 export class OkxAdapter implements ExchangeAdapter {

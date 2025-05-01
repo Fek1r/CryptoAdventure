@@ -1,5 +1,6 @@
 // src/market/adapters/gate.adapter.ts
 import { ExchangeAdapter } from './exchange-adapter.interface';
+import { ParsedTicker } from './parsed-ticker.interface';
 import axios from 'axios';
 
 export class GateAdapter implements ExchangeAdapter {
@@ -14,7 +15,7 @@ export class GateAdapter implements ExchangeAdapter {
 
   getWebSocketUrl(): string {
     // WebSocket для фьючерсов USDT (Perpetual)
-    return 'wss://fx-ws.gate.io/v4/ws/usdt';
+    return 'wss://fx-ws.gateio.ws/v4/ws/usdt';
   }
 
   getSubscribeMessage(ticker: string): string {

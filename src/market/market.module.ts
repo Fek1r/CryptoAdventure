@@ -1,9 +1,16 @@
-// src/market/market.module.ts
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MarketService } from './market.service';
+import { MarketWebsocketService } from './market-websocket.service';
+import { TickerAnalyzerService } from './ticker-analyzer.service';
+import { ArbitrageModule } from '../arbitrage/arbitrage.module';
 
 @Module({
-  providers: [MarketService],
+  imports: [forwardRef(() => ArbitrageModule)],
+  providers: [
+    MarketService,
+    MarketWebsocketService,
+    TickerAnalyzerService,
+  ],
   exports: [MarketService],
 })
 export class MarketModule {}

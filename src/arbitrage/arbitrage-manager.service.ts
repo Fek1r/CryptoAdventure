@@ -1,7 +1,8 @@
+
 import { Injectable } from '@nestjs/common';
-import { MarketApiService } from '../market/market-api.service';
 import { CsvService } from '../storage/csv.service';
 import { PostgresService } from '../storage/postgres.service';
+import { MarketService } from '../market/market.service';
 
 interface ArbitrageWindow {
   startTime: number;
@@ -13,7 +14,7 @@ export class ArbitrageManagerService {
   private readonly commissionThreshold = 0.01; // 0%
 
   constructor(
-    private readonly api: MarketApiService,
+    private readonly market: MarketService,
     private readonly csv: CsvService,
     private readonly db: PostgresService,
   ) {}
@@ -38,54 +39,55 @@ export class ArbitrageManagerService {
     const window = this.windows.get(ticker);
 
     if (!window) {
-      // Создаём новое окно для тикера
       this.windows.set(ticker, { startTime: Date.now() });
 
-      const confirmed = true; // <- добавлено
-
-      //const confirmed = await this.confirmThroughApi(lowerExchange, higherExchange, ticker);
+      // Можно включить confirmThroughApi, если нужно API-подтверждение
+      const confirmed = await this.confirmThroughApi(lowerExchange, higherExchange, ticker);
 
       const savedWindow = this.windows.get(ticker);
       if (confirmed && savedWindow) {
         const now = Date.now();
         const realDuration = now - savedWindow.startTime;
 
-        console.log(`\u2705 Confirmed arbitrage ${ticker}: duration ${realDuration} ms`);
+        console.log(`✅ Confirmed arbitrage ${ticker}: duration ${realDuration} ms`);
 
         const record = {
-            timestamp: new Date(now).toISOString(),
-            exchange_with_lower_price: lowerExchange,
-            lower_price: lowerPrice,
-            lower_latency: lowerLatency,
-            exchange_with_higher_price: higherExchange,
-            higher_price: higherPrice,
-            higher_latency: higherLatency,
-            max_price_diff: parseFloat(spread.toFixed(6)),
-            duration: realDuration,
-            ticker,
-          };
-          
+          timestamp: new Date(now).toISOString(),
+          exchange_with_lower_price: lowerExchange,
+          lower_price: lowerPrice,
+          lower_latency: lowerLatency,
+          exchange_with_higher_price: higherExchange,
+          higher_price: higherPrice,
+          higher_latency: higherLatency,
+          max_price_diff: parseFloat(spread.toFixed(6)),
+          duration: realDuration,
+          ticker,
+        };
 
         this.csv.saveRecord(record);
         await this.db.saveRecord(record);
       }
 
-      // В любом случае очищаем окно
       this.windows.delete(ticker);
     }
   }
 
   private async confirmThroughApi(lowerExchange: string, higherExchange: string, ticker: string): Promise<boolean> {
     try {
+      const lowerAdapter = this.market.getAdapterByName(lowerExchange);
+      const higherAdapter = this.market.getAdapterByName(higherExchange);
+
+      if (!lowerAdapter || !higherAdapter) return false;
+
       const [lowerAsk, higherBid] = await Promise.all([
-        this.api.getBestAsk(lowerExchange, ticker),
-        this.api.getBestBid(higherExchange, ticker),
+        lowerAdapter.getBestAsk(ticker),
+        higherAdapter.getBestBid(ticker),
       ]);
 
       if (!lowerAsk || !higherBid) return false;
 
       const apiSpread = ((higherBid - lowerAsk) / lowerAsk) * 100;
-      console.log(`\ud83d\udcf1 API Spread Confirmed: ${ticker} = ${apiSpread.toFixed(6)} %`);
+      console.log(`📱 API Spread Confirmed: ${ticker} = ${apiSpread.toFixed(6)} %`);
 
       return apiSpread >= this.commissionThreshold;
     } catch (error: any) {

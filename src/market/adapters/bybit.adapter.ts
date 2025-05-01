@@ -1,5 +1,6 @@
 // src/market/adapters/bybit.adapter.ts
 import { ExchangeAdapter } from './exchange-adapter.interface';
+import { ParsedTicker } from './parsed-ticker.interface';
 import axios from 'axios';
 
 export class BybitAdapter implements ExchangeAdapter {

@@ -1,3 +1,5 @@
+import { ParsedTicker } from './parsed-ticker.interface';
+
 export interface ExchangeAdapter {
     getName(): string;
     formatTicker(ticker: string): string;

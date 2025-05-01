@@ -1,5 +1,7 @@
 // src/market/adapters/binance.adapter.ts
 import { ExchangeAdapter } from './exchange-adapter.interface';
+import { ParsedTicker } from './parsed-ticker.interface';
+
 import axios from 'axios';
 
 export class BinanceAdapter implements ExchangeAdapter {
