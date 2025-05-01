@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ArbitrageManagerService } from './arbitrage-manager.service';
+import { ArbitrageManagerService } from '../arbitrage/arbitrage.service';
 
 interface PriceInfo {
   exchange: string;

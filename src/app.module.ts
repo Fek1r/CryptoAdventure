@@ -1,8 +1,10 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
-import { MarketDataModule } from './market-data/market-data.module';
+import { MarketModule } from './market/market.module';
+import { ArbitrageModule } from './arbitrage/arbitrage.module';
 import { StorageModule } from './storage/storage.module';
 
 @Module({
-  imports: [MarketDataModule, StorageModule],
+  imports: [MarketModule, ArbitrageModule, StorageModule],
 })
 export class AppModule {}

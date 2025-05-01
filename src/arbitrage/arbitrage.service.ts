@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MarketApiService } from './market-api.service';
+import { MarketApiService } from '../market/market-api.service';
 import { CsvService } from '../storage/csv.service';
 import { PostgresService } from '../storage/postgres.service';
 
