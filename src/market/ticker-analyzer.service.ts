@@ -12,17 +12,23 @@ interface PriceInfo {
 @Injectable()
 export class TickerAnalyzerService {
   private latestPrices: Record<string, PriceInfo[]> = {};
+  private readonly maxLatency = 2000; // ms
+  private readonly maxAge = 1000; // ms
 
   constructor(private readonly arbitrageManager: ArbitrageManagerService) {}
 
   collectPrice(priceInfo: PriceInfo) {
     const key = priceInfo.ticker.toUpperCase();
+    const now = Date.now();
 
     if (!this.latestPrices[key]) {
       this.latestPrices[key] = [];
     }
 
-    this.latestPrices[key] = this.latestPrices[key].filter(p => Date.now() - p.timestamp < 2000);
+    // Убираем старые или медленные записи
+    this.latestPrices[key] = this.latestPrices[key].filter(p =>
+      now - p.timestamp < this.maxAge && p.latency <= this.maxLatency,
+    );
 
     const existingIndex = this.latestPrices[key].findIndex(p => p.exchange === priceInfo.exchange);
 
@@ -57,7 +63,9 @@ export class TickerAnalyzerService {
   }
 
   analyze(prices: PriceInfo[]) {
-    const validPrices = prices.filter(p => typeof p.price === 'number' && !isNaN(p.price));
+    const validPrices = prices.filter(p =>
+      typeof p.price === 'number' && !isNaN(p.price)
+    );
 
     if (validPrices.length < 2) return null;
 

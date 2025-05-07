@@ -23,28 +23,42 @@ export class GateAdapter implements ExchangeAdapter {
       time: Date.now(),
       channel: 'futures.tickers',
       event: 'subscribe',
-      payload: [this.formatTicker(ticker)],
+      payload: [ticker], // тикер должен быть в формате 'TRX_USDT'
+      settle: 'usdt',    // обязательно для фьючерсов
     });
   }
 
   parseMessage(msg: string, latency: number): ParsedTicker | null {
     const data = JSON.parse(msg);
-    if (data.channel === 'futures.tickers' && data.result) {
-      return {
-        ticker: data.result.contract.replace('_', ''),
-        price: parseFloat(data.result.last),
-        timestamp: Date.now(),
-        exchange: this.getName(),
-        latency,
-      };
+  
+    if (data.event !== 'update' || !Array.isArray(data.result) || !data.result.length) {
+      console.warn('[WS] gate unknown msg:', msg);
+      return null;
     }
-    return null;
+  
+    const tickerData = data.result[0];
+  
+    if (!tickerData.contract || !tickerData.last) {
+      console.error('[Gate] Invalid ticker update:', JSON.stringify(data));
+      return null;
+    }
+  
+    const parsed: ParsedTicker = {
+      ticker: tickerData.contract.replace('_', ''),
+      price: parseFloat(tickerData.last),
+      timestamp: Date.now(),
+      exchange: this.getName(),
+      latency,
+    };
+  
+    console.log(`[WS] gate parsed:`, parsed);
+    return parsed;
   }
 
   async getBestBid(ticker: string): Promise<number | null> {
     try {
       const symbol = this.formatTicker(ticker);
-      const { data } = await axios.get(`https://api.gate.io/api/v4/futures/usdt/order_book`, {
+      const { data } = await axios.get(`https://fx-api.gateio.ws/api/v4/futures/usdt/order_book`, {
         params: { contract: symbol, limit: 5 },
       });
       if (!data.bids?.length) throw new Error('Gate.io Futures empty orderbook');
@@ -58,7 +72,7 @@ export class GateAdapter implements ExchangeAdapter {
   async getBestAsk(ticker: string): Promise<number | null> {
     try {
       const symbol = this.formatTicker(ticker);
-      const { data } = await axios.get(`https://api.gate.io/api/v4/futures/usdt/order_book`, {
+      const { data } = await axios.get(`https://fx-api.gateio.ws/api/v4/futures/usdt/order_book`, {
         params: { contract: symbol, limit: 5 },
       });
       if (!data.asks?.length) throw new Error('Gate.io Futures empty orderbook');

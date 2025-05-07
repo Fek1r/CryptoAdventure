@@ -1,7 +1,5 @@
-// src/market/adapters/binance.adapter.ts
 import { ExchangeAdapter } from './exchange-adapter.interface';
 import { ParsedTicker } from './parsed-ticker.interface';
-
 import axios from 'axios';
 
 export class BinanceAdapter implements ExchangeAdapter {
@@ -18,20 +16,27 @@ export class BinanceAdapter implements ExchangeAdapter {
   }
 
   getSubscribeMessage(ticker: string): string {
-    return `${this.formatTicker(ticker)}@ticker`;
+    return JSON.stringify({
+      method: 'SUBSCRIBE',
+      params: [`${this.formatTicker(ticker)}@ticker`],
+      id: Date.now(),
+    });
   }
 
   parseMessage(msg: string, latency: number): ParsedTicker | null {
     const data = JSON.parse(msg);
     if (data.e !== '24hrTicker') return null;
 
-    return {
+    const parsed: ParsedTicker = {
       ticker: data.s,
       price: parseFloat(data.c),
       timestamp: data.E,
       exchange: this.getName(),
       latency,
     };
+
+    console.log(`[WS] binance parsed:`, parsed);
+    return parsed;
   }
 
   async getBestBid(ticker: string): Promise<number | null> {
@@ -46,7 +51,7 @@ export class BinanceAdapter implements ExchangeAdapter {
       return null;
     }
   }
-  
+
   async getBestAsk(ticker: string): Promise<number | null> {
     try {
       const { data } = await axios.get('https://fapi.binance.com/fapi/v1/depth', {

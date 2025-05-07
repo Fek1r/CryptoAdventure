@@ -10,7 +10,8 @@ export class OkxAdapter implements ExchangeAdapter {
 
   formatTicker(ticker: string): string {
     // OKX Futures symbols: e.g., BTC-USDT-SWAP
-    return ticker.replace('USDT', '-USDT-SWAP').toUpperCase();
+    return `${ticker.replace('USDT', '')}-USDT-SWAP`.toUpperCase();
+
   }
 
   getWebSocketUrl(): string {
@@ -31,16 +32,20 @@ export class OkxAdapter implements ExchangeAdapter {
 
   parseMessage(msg: string, latency: number): ParsedTicker | null {
     const data = JSON.parse(msg);
-    if (data.arg?.channel === 'tickers' && data.data?.[0]) {
+    if (data.arg?.channel === 'tickers' && Array.isArray(data.data) && data.data[0]) {
       const item = data.data[0];
-      return {
+      const parsed: ParsedTicker = {
         ticker: item.instId.replace(/-/g, ''),
         price: parseFloat(item.last),
         timestamp: parseInt(item.ts),
         exchange: this.getName(),
         latency,
       };
+      console.log(`[WS] okx parsed:`, parsed);
+      return parsed;
     }
+  
+    console.warn('[WS] okx unknown msg:', msg);
     return null;
   }
 

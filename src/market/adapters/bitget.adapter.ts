@@ -30,13 +30,15 @@ export class BitgetAdapter implements ExchangeAdapter {
   parseMessage(msg: string, latency: number): ParsedTicker | null {
     const data = JSON.parse(msg);
     if (data.arg?.channel === 'ticker' && data.data?.[0]) {
-      return {
+      const parsed: ParsedTicker = {
         ticker: data.arg.instId.replace('_UMCBL', ''),
         price: parseFloat(data.data[0].last),
         timestamp: parseInt(data.data[0].ts),
         exchange: this.getName(),
         latency,
       };
+      console.log(`[WS] bitget parsed:`, parsed);
+      return parsed;
     }
     return null;
   }
