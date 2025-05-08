@@ -9,9 +9,20 @@ export class OkxAdapter implements ExchangeAdapter {
   }
 
   formatTicker(ticker: string): string {
-    // OKX Futures symbols: e.g., BTC-USDT-SWAP
-    return `${ticker.replace('USDT', '')}-USDT-SWAP`.toUpperCase();
-
+    // Return early if ticker already appears correctly formatted
+    if (/^[A-Z]+-[A-Z]+-SWAP$/i.test(ticker)) {
+      return ticker.toUpperCase();
+    }
+  
+    // Parse tickers like TRXUSDT
+    const match = ticker.match(/^([A-Z]+)(USDT)$/i);
+    if (!match) {
+      throw new Error(`Invalid ticker format for OKX: ${ticker}`);
+    }
+  
+    const base = match[1].toUpperCase();
+    const quote = match[2].toUpperCase();
+    return `${base}-${quote}-SWAP`;
   }
 
   getWebSocketUrl(): string {
