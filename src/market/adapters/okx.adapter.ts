@@ -8,21 +8,18 @@ export class OkxAdapter implements ExchangeAdapter {
     return 'okx';
   }
 
-  formatTicker(ticker: string): string {
+  formatTicker(ticker: string): string | null{
     // Return early if ticker already appears correctly formatted
-    if (/^[A-Z]+-[A-Z]+-SWAP$/i.test(ticker)) {
+    if (/^[A-Z]+-[A-Z]$/i.test(ticker)) {
       return ticker.toUpperCase();
     }
   
     // Parse tickers like TRXUSDT
     const match = ticker.match(/^([A-Z]+)(USDT)$/i);
-    if (!match) {
-      throw new Error(`Invalid ticker format for OKX: ${ticker}`);
-    }
-  
+    if(!match) return null;
     const base = match[1].toUpperCase();
     const quote = match[2].toUpperCase();
-    return `${base}-${quote}-SWAP`;
+    return `${base}-${quote}`;
   }
 
   getWebSocketUrl(): string {
@@ -52,7 +49,7 @@ export class OkxAdapter implements ExchangeAdapter {
         exchange: this.getName(),
         latency,
       };
-      console.log(`[WS] okx parsed:`, parsed);
+    //   console.log(`[WS] okx parsed:`, parsed);
       return parsed;
     }
   

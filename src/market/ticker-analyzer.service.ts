@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ArbitrageManagerService } from '../arbitrage/arbitrage-manager.service';
+// import { normalizeTicker } from './adapters/utils/ticker-normalizer';
+
 
 interface PriceInfo {
   exchange: string;
@@ -18,7 +20,8 @@ export class TickerAnalyzerService {
   constructor(private readonly arbitrageManager: ArbitrageManagerService) {}
 
   collectPrice(priceInfo: PriceInfo) {
-    const key = priceInfo.ticker.toUpperCase();
+    // const key = normalizeTicker(priceInfo.ticker); // ✅ Use normalized ticker key
+    const key = priceInfo.ticker;
     const now = Date.now();
 
     if (!this.latestPrices[key]) {
@@ -44,7 +47,7 @@ export class TickerAnalyzerService {
       const record = this.analyze(this.latestPrices[key]);
 
       if (record) {
-        console.log('✅ Potential Arbitrage Found:', record);
+        // console.log('✅ Potential Arbitrage Found:', record);
         this.arbitrageManager.handleSpread(
           record.exchange_with_lower_price,
           record.exchange_with_higher_price,

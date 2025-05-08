@@ -51,7 +51,7 @@ export class GateAdapter implements ExchangeAdapter {
       latency,
     };
   
-    console.log(`[WS] gate parsed:`, parsed);
+    // console.log(`[WS] gate parsed:`, parsed);
     return parsed;
   }
 

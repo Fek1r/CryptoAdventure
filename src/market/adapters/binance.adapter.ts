@@ -1,8 +1,15 @@
 import { ExchangeAdapter } from './exchange-adapter.interface';
 import { ParsedTicker } from './parsed-ticker.interface';
 import axios from 'axios';
-
+import ccxt, { binance, Exchange } from 'ccxt';
 export class BinanceAdapter implements ExchangeAdapter {
+
+    serega(){
+        const exchange = new ccxt.pro.binance ({
+            'apiKey': 'MY_API_KEY',
+            'secret': 'MY_SECRET',
+        });
+    }
   getName(): string {
     return 'binance';
   }
@@ -65,3 +72,6 @@ export class BinanceAdapter implements ExchangeAdapter {
     }
   }
 }
+
+
+

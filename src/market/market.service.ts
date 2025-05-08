@@ -18,7 +18,7 @@ export class MarketService {
       new BybitAdapter(),
       new OkxAdapter(),
       new GateAdapter(),
-     new MexcAdapter(),
+    // new MexcAdapter(),
       new BitgetAdapter(),
     ];
   }

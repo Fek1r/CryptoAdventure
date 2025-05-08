@@ -32,10 +32,14 @@ export class MarketWebsocketService implements OnModuleInit {
       ws.on('open', () => {
         console.log(`🔌 Connected to ${adapter.getName()}`);
         for (const ticker of TICKERS) {
-          const message = adapter.getSubscribeMessage(adapter.formatTicker(ticker));
+          const formattedTicker = adapter.formatTicker(ticker);
+          if(formattedTicker){
+            const message = adapter.getSubscribeMessage(formattedTicker);
           if (message) {
             ws.send(message);
           }
+          }
+          
         }
       });
 
